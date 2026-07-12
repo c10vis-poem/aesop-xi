@@ -159,3 +159,21 @@ problem as better-sqlite3/tree-sitter). Two options, try in order:**
 **Immediate next step for next session:** get sherpa-onnx's official Kokoro Python
 example running against `kokoro-multi-lang-v1.x/model.onnx` in the proot, confirm real
 audio out, THEN wire it back into voice_bot.py replacing the sine-beep stub.
+
+## STT/TTS — model choice + install plan (decided, new session)
+
+- **STT model: `csukuangfj/sherpa-onnx-moonshine-base-en-int8`** (chosen over tiny for
+  quality; both are the only two Moonshine variants in the official sherpa-onnx HF org).
+- **Runtime vs model separation (answers "can one install persist everywhere"):**
+  model files (Moonshine, Kokoro, Silero VAD) are ABI-agnostic data — ONE shared folder
+  (e.g. `~/models/`) works across every environment via symlink/bind-mount, no duplication.
+  The sherpa-onnx RUNTIME cannot be shared as one binary: Termux = bionic libc, Debian
+  proot = glibc, different ABIs. Checked sherpa-onnx's Android release assets directly —
+  they are JNI `.so` libs for embedding in an APK, NOT standalone CLI binaries, so there is
+  no bionic-native shortcut. Confirmed plan: ONE shared model folder + a thin sherpa-onnx
+  RUNTIME install inside the Debian proot (glibc matches its prebuilt wheels, straightforward
+  pip install). Remaining known task: bridge mic/speaker from Android into the proot
+  (PulseAudio, point proot's PULSE_SERVER at Termux's audio).
+- GitHub API/web access to k2-fsa/sherpa-onnx is BLOCKED at this environment's proxy
+  (repo out of session scope) — don't burn time re-trying github.com/api.github.com for
+  this repo; use WebSearch or HF tools instead.
