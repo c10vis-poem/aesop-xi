@@ -79,6 +79,27 @@ OpenRouter GLM-5.2). Naming: **AESOP** = umbrella · **Omni-Claw** = device clie
   fallback; profiles map hardware. `profiles/nav.yaml` = his 4-tier rig.
 - **Omni-Claw WebView OAuth** = the device-native login (Android WebView + CookieManager →
   storage_state) for notebooklm/Claude/Gemini — one auth mechanism.
+- **OmniRoute = the gateway** binding role→runtime per profile (was under-specified in
+  earlier passes; expanding here). It is NOT just "a router" — it already has the
+  infrastructure this design needs, reused rather than rebuilt:
+  - **Combo routing** (`open-sse/services/combo.ts`, 14 strategies incl. priority,
+    weighted, cost-optimized, context-optimized) is the literal mechanism for "bind role
+    X to runtime Y, fall back to Z" — AESOP's tier fallback chains map directly onto
+    combo-routing targets, no new routing logic needed.
+  - **`src/lib/memory/`** (FTS5 + Qdrant) is an existing memory subsystem — candidate to
+    host Recall (replacing/alongside OB1) rather than standing up a second vector store.
+  - **Provider circuit breaker / connection cooldown / model lockout** (3-layer
+    resilience, see OmniRoute's own `docs/architecture/RESILIENCE_GUIDE.md`) is exactly
+    the "tier absent → fall back" behavior AESOP needs, already implemented and battle
+    tested — do not reinvent, wire AESOP's tiers into it.
+  - **`mcp_audit` table + MCP server** (`open-sse/mcp-server/`) is a natural home for the
+    audit gate's write-envelope/verdict log (§5 in ARCHITECTURE.md) — every Tier-1/2
+    action already has an audit-log table shape to reuse.
+  - **The red/auditor as a hub endpoint**: register the cloud GLM-5.2 auditor as an
+    OmniRoute target like any other model — "there but not there" (routable, zero local
+    footprint). This is how independence + reachability are both satisfied at once.
+  - TODO next session: write this up properly as `aesop/protocol/gateway.md` (mirroring
+    roles.md/memory.md/audit.md) instead of leaving OmniRoute as a one-line mapping.
 
 ## Open decisions
 - Auditor: in-stack-isolated vs strictly out-of-band (leaning cloud GLM-5.2).
