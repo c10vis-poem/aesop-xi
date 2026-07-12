@@ -95,3 +95,46 @@ OpenRouter GLM-5.2). Naming: **AESOP** = umbrella · **Omni-Claw** = device clie
    (proot or Android binaries) and wire `termux-api` audio.
 4. OpenWiki fork: make the fallback checkpointer patch → open draft PR upstream (then
    `npm update -g openwiki` on device inherits the fix).
+
+## STT/TTS — findings (this session, low battery, capturing for next)
+
+**Confirmed via device screenshots — do NOT re-ask, just execute below.**
+
+- `~/storage/.../sherpa-kokoro/kokoro-multi-lang-v1.x/` = REAL correct Kokoro bundle:
+  `model.onnx` (326MB) + `espeak-ng-data/` + `dict/` + `lexicon-us/gb/zh` + `date-zh.fst`.
+  This is exactly sherpa-onnx's expected OfflineTts file layout. Nothing wrong with it.
+- `kokoro_tts.py` = a hand-rolled bypass calling onnxruntime directly with a DIY
+  phonemizer. **BROKEN**: its char-by-char loop (`for p in ipa: if p in phoneme_map`)
+  can never match its own multi-char map entries (`aɪ`, `eɪ`, `dʒ`, etc — IPA diphthongs
+  are 2 chars, loop reads 1 at a time). Do not debug/fix this file — replace with real
+  sherpa-onnx, which phonemizes correctly using the bundle's own espeak-ng-data/lexicons.
+- `voice_bot.py` = STUBBED. `run_tts()` doesn't call kokoro_tts.py at all — it shells
+  `ffmpeg` to generate a fake 440Hz sine beep as a placeholder. `run_stt()` is referenced
+  but not implemented/shown. Whole voice loop is currently non-functional scaffolding.
+
+**Verdict:** no sherpa-onnx runtime installed anywhere. Model assets are correct and
+ready. Next session: install real sherpa-onnx and point it at the existing bundle;
+throw away kokoro_tts.py's phonemizer and voice_bot.py's stub once sherpa-onnx works.
+
+**Install path (Python 3.14 on Termux has no prebuilt sherpa-onnx wheel — same class of
+problem as better-sqlite3/tree-sitter). Two options, try in order:**
+
+1. Termux native, but pin an older Python sherpa-onnx actually ships wheels for:
+   `pkg install python3.11` (if packaged) or check `pip index versions sherpa-onnx`
+   for a cp313/aarch64 match first — do NOT assume, check before installing.
+2. Reliable fallback — Debian proot (glibc, matches sherpa-onnx's manylinux wheels):
+   ```
+   proot-distro login debian --bind ~/storage/shared:/root/storage
+   apt install -y python3-pip
+   pip install sherpa-onnx --break-system-packages
+   ```
+   Then point it at the existing bundle path (mounted via --bind, no need to redownload):
+   `model=/root/storage/.../kokoro-multi-lang-v1.x/model.onnx`,
+   `voices=.../voices.bin` (confirm exact voices file name — user mentioned finding a
+   "voices" file, likely `voices.bin` per sherpa-onnx's kokoro convention, not the
+   `voices.json` the broken script expects).
+   Audio I/O bridge (mic/speaker Termux<->proot) still TODO — likely PulseAudio.
+
+**Immediate next step for next session:** get sherpa-onnx's official Kokoro Python
+example running against `kokoro-multi-lang-v1.x/model.onnx` in the proot, confirm real
+audio out, THEN wire it back into voice_bot.py replacing the sine-beep stub.
