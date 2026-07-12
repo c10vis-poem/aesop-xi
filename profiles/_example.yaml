@@ -1,0 +1,25 @@
+# AESOP profile — the common case: phone + laptop + cloud (no dedicated home node).
+# Home-tier roles degrade onto laptop (personal) and cloud.
+
+profile: example-3tier
+
+nodes:
+  phone:
+    tiers: [edge]
+    model: { local: "small-instruct-q4", runtime: "on-device" }
+    sensors: [camera, microphone]
+  laptop:
+    tiers: [personal, home]      # laptop stands in for the home node
+    storage: local
+  cloud:
+    tiers: [cloud]
+    providers: [openrouter]      # passthrough models + auditor
+    storage: object-store         # canonical backup
+
+bindings:
+  query:     { on: phone }
+  executive: { on: laptop, else: cloud }   # no home node → personal, then cloud
+  librarian: { on: laptop }
+  auditor:   { on: cloud }
+
+privacy_tier: hybrid              # local terminal + cloud model

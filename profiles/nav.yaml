@@ -1,0 +1,48 @@
+# AESOP profile — the reference full 4-tier rig.
+# Your specific setup is one instance of the device-agnostic protocol.
+
+profile: nav
+
+nodes:
+  phone:
+    tiers: [edge]
+    model:
+      local: "Qwen3.5-9B-VLM"
+      quant: "Q4_0-GGUF"
+      runtime: "QAIRT / HTP (Hexagon NPU)"
+    sensors: [camera, microphone]   # best sensors in the rig; streamed to home over Tailscale
+    client: omni-claw
+  computer:
+    tiers: [personal]
+  jetson:
+    tiers: [home]                   # 8 GB — HUB, not a big-model box
+    hosts: [memory, gateway, librarian, executive-small]
+    memory:
+      declarative: wiki             # canonical markdown vault
+      recall: ob1                   # Postgres + vector
+      strategic: reasoning-bank
+    executive:
+      local: "gemma-4-E2B (ONNX)"   # tiny slice; onnxruntime CUDA EP
+      embedder: local               # max-privacy: no cloud embeddings
+  rubik_pi:
+    tiers: [home]                   # Dragonwing SoC — desktop OS + audio
+    hosts: [desktop-os, tts]
+    tts: "kokoro / sherpa-onnx"
+  cloud:
+    tiers: [cloud]
+    providers:
+      auditor: "openrouter:z-ai/glm-5.2"   # there-but-not-there, out-of-band
+    training: "gcp-enterprise"             # walled: recursive JSONL / ReasoningBank induction
+    storage: object-store                  # canonical vault backup
+
+bindings:
+  query:     { on: phone }
+  executive: { home: jetson, away: cloud }   # local when home, passthrough when out
+  librarian: { on: jetson }
+  auditor:   { on: cloud, edge_behavior: defer }
+
+privacy_tiers:
+  convenience: { executive: "browser claude-code / cloud" }
+  hybrid:      { executive: "local terminal + cloud model" }
+  max_privacy: { executive: "on-device gemma + local embedder" }
+  walled_train: { on: gcp-enterprise }        # induction/MaTTS inside the security boundary
