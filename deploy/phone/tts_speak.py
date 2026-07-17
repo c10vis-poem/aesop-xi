@@ -24,7 +24,9 @@ def find_kokoro():
     return None
 
 
-def speak(text, output_path, speed=1.0, sid=0):
+def speak(text, output_path, speed=1.0, sid=None):
+    if sid is None:
+        sid = int(os.environ.get("AESOP_VOICE", "0"))
     kokoro = find_kokoro()
     if not kokoro:
         print("Kokoro model not found. Checked:", file=sys.stderr)
