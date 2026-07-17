@@ -20,9 +20,11 @@ if ! command -v proot-distro &>/dev/null; then
   echo "Installing proot-distro..."
   pkg install -y proot-distro
 fi
-if ! proot-distro list | grep -q "debian.*installed"; then
+if ! proot-distro list 2>/dev/null | grep -q "debian"; then
   echo "Installing Debian in proot (one-time, ~200MB)..."
   proot-distro install debian
+else
+  echo "Debian proot already installed."
 fi
 
 # --- 3. Ensure ffmpeg is in native Termux ---

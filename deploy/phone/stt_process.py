@@ -10,10 +10,41 @@ import wave
 import numpy as np
 import sherpa_onnx
 
-MODELS = os.path.expanduser("~/models")
-VAD_MODEL = os.path.join(MODELS, "silero_vad.onnx")
-MOON_DIR = os.path.join(MODELS, "sherpa-onnx-moonshine-base-en-int8")
 SAMPLE_RATE = 16000
+
+
+def find_file(name, candidates):
+    for d in candidates:
+        p = os.path.join(os.path.expanduser(d), name)
+        if os.path.isfile(p):
+            return p
+    return None
+
+
+def find_dir(name, candidates):
+    for d in candidates:
+        p = os.path.join(os.path.expanduser(d), name)
+        if os.path.isdir(p):
+            return p
+    return None
+
+
+SEARCH_PATHS = [
+    "~/models",
+    "~/sherpa-onnx-moonshine-base-en-int8",
+    "~/storage/shared",
+    "~/storage",
+    "/sdcard",
+    ".",
+]
+
+VAD_MODEL = find_file("silero_vad.onnx", SEARCH_PATHS)
+MOON_DIR = find_dir("sherpa-onnx-moonshine-base-en-int8", SEARCH_PATHS)
+
+if not VAD_MODEL:
+    VAD_MODEL = os.path.expanduser("~/models/silero_vad.onnx")
+if not MOON_DIR:
+    MOON_DIR = os.path.expanduser("~/models/sherpa-onnx-moonshine-base-en-int8")
 
 
 def create_vad():

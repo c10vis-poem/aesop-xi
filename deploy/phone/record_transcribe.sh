@@ -1,22 +1,33 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # AESOP STT — record from mic, transcribe with Moonshine.
 # Run from NATIVE Termux. Calls proot internally for sherpa-onnx.
+#
+# Usage:
+#   ./record_transcribe.sh        # press ENTER to stop recording
+#   ./record_transcribe.sh 10     # fixed 10-second recording
 set -euo pipefail
 
 AUDIO_RAW="$HOME/.stt_raw.wav"
 AUDIO_16K="$HOME/.stt_16k.wav"
-DURATION="${1:-5}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 STT_PY="$SCRIPT_DIR/stt_process.py"
 
 # --- Record ---
-termux-toast "Speak now (${DURATION}s)"
-termux-vibrate -d 100
-termux-microphone-record -f "$AUDIO_RAW" -l "$DURATION" -e amr_wb -r 16000 -c 1
-
-# Wait for recording to finish
-sleep "$DURATION"
-termux-microphone-record -q 2>/dev/null || true
+if [ -n "${1:-}" ]; then
+  # Fixed duration mode
+  termux-toast "Speak now (${1}s)"
+  termux-vibrate -d 100
+  termux-microphone-record -f "$AUDIO_RAW" -l "$1" -e amr_wb -r 16000 -c 1
+  sleep "$1"
+  termux-microphone-record -q 2>/dev/null || true
+else
+  # Open-ended mode — record until ENTER
+  termux-toast "Recording... press ENTER to stop"
+  termux-vibrate -d 100
+  termux-microphone-record -f "$AUDIO_RAW" -e amr_wb -r 16000 -c 1
+  read -r -p ">>> Recording. Press ENTER when done. "
+  termux-microphone-record -q
+fi
 sleep 0.5
 
 # --- Convert to 16kHz mono PCM WAV ---
