@@ -75,8 +75,13 @@ def speak(text, output_path, speed=1.0, sid=None):
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print(f"Usage: {sys.argv[0]} <output.wav> <text...>", file=sys.stderr)
+        print(f"Usage: {sys.argv[0]} <output.wav> [--sid N] <text...>", file=sys.stderr)
         sys.exit(2)
     output = sys.argv[1]
-    text = " ".join(sys.argv[2:])
-    sys.exit(speak(text, output))
+    sid = None
+    args = sys.argv[2:]
+    if len(args) >= 2 and args[0] == "--sid":
+        sid = int(args[1])
+        args = args[2:]
+    text = " ".join(args)
+    sys.exit(speak(text, output, sid=sid))
