@@ -12,6 +12,9 @@ AUDIO_16K="$HOME/.stt_16k.wav"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 STT_PY="$SCRIPT_DIR/stt_process.py"
 
+# --- Clean stale files ---
+rm -f "$AUDIO_RAW" "$AUDIO_16K"
+
 # --- Record ---
 if [ -n "${1:-}" ]; then
   # Fixed duration mode
