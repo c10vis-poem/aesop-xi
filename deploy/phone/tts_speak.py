@@ -28,26 +28,30 @@ def speak(text, output_path, speed=1.0, sid=0):
     kokoro = find_kokoro()
     if not kokoro:
         print("Kokoro model not found. Checked:", file=sys.stderr)
-        for c in [
-            "~/models/kokoro-multi-lang-v1.0",
-            "~/models/kokoro-multi-lang-v1.x",
-        ]:
+        for c in candidates:
             print(f"  {c}", file=sys.stderr)
         return 1
 
     voices_bin = os.path.join(kokoro, "voices.bin")
     data_dir = os.path.join(kokoro, "espeak-ng-data")
     tokens = os.path.join(kokoro, "tokens.txt")
-    model = os.path.join(kokoro, "model.onnx")
+    model_path = os.path.join(kokoro, "model.onnx")
+    dict_dir = os.path.join(kokoro, "dict")
+    lexicon = os.path.join(kokoro, "lexicon-us-en.txt")
+
+    kokoro_config = sherpa_onnx.OfflineTtsKokoroModelConfig(
+        model=model_path,
+        voices=voices_bin,
+        tokens=tokens,
+        data_dir=data_dir,
+        dict_dir=dict_dir,
+        lexicon=lexicon,
+        lang="en-us",
+    )
 
     tts_config = sherpa_onnx.OfflineTtsConfig(
         model=sherpa_onnx.OfflineTtsModelConfig(
-            kokoro=sherpa_onnx.OfflineTtsKokoroModelConfig(
-                model=model,
-                voices=voices_bin,
-                tokens=tokens,
-                data_dir=data_dir,
-            ),
+            kokoro=kokoro_config,
             num_threads=2,
         ),
         max_num_sentences=1,
