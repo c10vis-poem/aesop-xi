@@ -11,8 +11,11 @@ KOKORO_DIR = None
 
 def find_kokoro():
     candidates = [
+        os.path.expanduser("~/models/kokoro-multi-lang-v1.0"),
         os.path.expanduser("~/models/kokoro-multi-lang-v1.x"),
+        os.path.expanduser("~/storage/sherpa-kokoro/kokoro-multi-lang-v1.0"),
         os.path.expanduser("~/storage/sherpa-kokoro/kokoro-multi-lang-v1.x"),
+        os.path.expanduser("~/storage/shared/sherpa-kokoro/kokoro-multi-lang-v1.0"),
         os.path.expanduser("~/storage/shared/sherpa-kokoro/kokoro-multi-lang-v1.x"),
     ]
     for d in candidates:
@@ -26,8 +29,8 @@ def speak(text, output_path, speed=1.0, sid=0):
     if not kokoro:
         print("Kokoro model not found. Checked:", file=sys.stderr)
         for c in [
+            "~/models/kokoro-multi-lang-v1.0",
             "~/models/kokoro-multi-lang-v1.x",
-            "~/storage/sherpa-kokoro/kokoro-multi-lang-v1.x",
         ]:
             print(f"  {c}", file=sys.stderr)
         return 1
