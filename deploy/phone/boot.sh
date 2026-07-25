@@ -10,7 +10,9 @@ set -euo pipefail
 # 8080 on this device, and the media daemon owns 8091. Loopback is shared
 # across all Android apps — binding 8080 here collides with the NPU plane.
 # Full port map: aesop/protocol/bridge-protocol.md
-MODEL="${AESOP_MODEL:-$HOME/models/gemma-4-12b-it-qat.gguf}"
+# Q4_0 quant specifically — llama.cpp repacks Q4_0 to the ARM-optimized
+# layout on Snapdragon; faster than Q4_K_* here. Keep the q4_0 file.
+MODEL="${AESOP_MODEL:-$HOME/models/gemma-4-12b-it-qat-q4_0.gguf}"
 PORT="${AESOP_PORT:-8081}"
 CTX="${AESOP_CTX:-4096}"
 

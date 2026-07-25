@@ -19,7 +19,15 @@ discover_model() {
     echo "$AESOP_MODEL"
     return
   fi
-  # Preferred: Gemma 4 12B IT QAT, wherever it landed
+  # Preferred: Gemma 4 12B IT QAT in Q4_0 specifically. On Snapdragon,
+  # llama.cpp runtime-repacks Q4_0 into the i8mm/dotprod-optimized aarch64
+  # layout — measurably faster than K-quants (Q4_K_XL etc.) on this CPU.
+  # If both quants are on disk, Q4_0 must win.
+  local m
+  m="$(find "$HOME/models" /sdcard/Download /storage/emulated/0/Download /storage/*/models \
+      -iname '*gemma*12b*q4_0*.gguf' 2>/dev/null | head -1)"
+  if [ -n "$m" ]; then echo "$m"; return; fi
+  # Any Gemma 12B quant as second choice
   find "$HOME/models" /sdcard/Download /storage/emulated/0/Download /storage/*/models \
       -iname '*gemma*12b*.gguf' 2>/dev/null | head -1 && return
 }
@@ -40,12 +48,17 @@ fi
 echo "[llamad] model: $MODEL"
 echo "[llamad] port:  $PORT  ctx: $CTX"
 
-# --no-mmap: Android's low-RAM killer interacts badly with huge mmapped
-# files; explicit alloc keeps residency honest. Threads: big cores only.
+# mmap (default) on purpose: file-backed pages are reclaimable, so under
+# memory pressure Android evicts pages (slow re-read from UFS) instead of
+# the low-memory killer shooting the whole daemon. On a device that dips
+# from 11GB free to 8GB when apps bloat, degraded-but-alive beats dead.
+# KV cache in q8_0 (needs -fa) roughly halves cache memory at 4k ctx.
+# Threads: big cores only — more threads just fights the LITTLE cluster.
 exec llama-server \
   -m "$MODEL" \
   -c "$CTX" \
   --host 127.0.0.1 \
   --port "$PORT" \
-  --no-mmap \
+  -fa \
+  -ctk q8_0 -ctv q8_0 \
   -t "${AESOP_THREADS:-6}"
