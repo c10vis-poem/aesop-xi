@@ -6,9 +6,30 @@
 #   [ -z "$TMUX" ] && bash ~/aesop/deploy/phone/boot.sh
 set -euo pipefail
 
-MODEL="${AESOP_MODEL:-$HOME/models/qwen3.5-9b-q4_0.gguf}"
-PORT="${AESOP_PORT:-8080}"
+# PORT 8081, not 8080: the Horizons app's ort_engine (NPU daemon) owns
+# 8080 on this device, and the media daemon owns 8091. Loopback is shared
+# across all Android apps — binding 8080 here collides with the NPU plane.
+# Full port map: aesop/protocol/bridge-protocol.md
+MODEL="${AESOP_MODEL:-$HOME/models/gemma-4-12b-it-qat.gguf}"
+PORT="${AESOP_PORT:-8081}"
 CTX="${AESOP_CTX:-4096}"
+
+# ── Prefer supervised daemons when installed ────────────────────────
+# install-daemons.sh sets up runit services (llamad + aesopd) with
+# auto-restart. If they exist, use them and skip the tmux path for the LLM.
+if [ -d "$PREFIX/var/service/llamad" ] && command -v sv &>/dev/null; then
+  echo "Supervised daemons detected — starting via termux-services..."
+  termux-wake-lock 2>/dev/null || true
+  sv up llamad 2>/dev/null || true
+  sv up aesopd 2>/dev/null || true
+  echo "  sv status llamad aesopd:"
+  sv status llamad aesopd 2>/dev/null || true
+  echo ""
+  echo "  GGML API:  http://localhost:8081/v1  (Gemma 12B · llama.cpp)"
+  echo "  Bridge:    ws://localhost:8765       (aesopd)"
+  echo "  NPU API:   http://localhost:8080     (app ort_engine, if running)"
+  exit 0
+fi
 
 # ── Sanity checks ───────────────────────────────────────────────────
 if [ ! -f "$MODEL" ]; then

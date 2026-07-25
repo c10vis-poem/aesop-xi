@@ -1,0 +1,51 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# llamad — Gemma 4 12B IT QAT GGUF via llama-server on port 8081.
+#
+# GGUF path: llama.cpp → GGML → CPU (or Adreno via OpenCL build).
+# This is the Termux-side brain. The NPU-compiled models (Gemma 4 E4B,
+# Qwen 2B QAI) run in the APP's ort_engine on 8080 — never here.
+# Termux cannot reach the HTP; don't burn time trying.
+#
+# Models are ALREADY ON DEVICE — this script only discovers, never downloads.
+# Override discovery with:  export AESOP_MODEL=/path/to/model.gguf
+set -u
+
+PORT="${AESOP_GGML_PORT:-8081}"
+CTX="${AESOP_CTX:-4096}"
+
+discover_model() {
+  # Explicit override wins
+  if [ -n "${AESOP_MODEL:-}" ] && [ -f "${AESOP_MODEL:-}" ]; then
+    echo "$AESOP_MODEL"
+    return
+  fi
+  # Preferred: Gemma 4 12B IT QAT, wherever it landed
+  find "$HOME/models" /sdcard/Download /storage/emulated/0/Download /storage/*/models \
+      -iname '*gemma*12b*.gguf' 2>/dev/null | head -1 && return
+}
+
+MODEL="$(discover_model | head -1)"
+if [ -z "$MODEL" ]; then
+  # Fall back to ANY gguf so the plane comes up degraded rather than dead
+  MODEL="$(find "$HOME/models" /sdcard/Download /storage/emulated/0/Download \
+      -iname '*.gguf' 2>/dev/null | head -1)"
+fi
+if [ -z "$MODEL" ]; then
+  echo "[llamad] no .gguf found in ~/models, /sdcard/Download, or SD card."
+  echo "[llamad] set AESOP_MODEL=/path/to/gemma-4-12b-it-qat.gguf"
+  sleep 30   # runit will re-run us; don't hot-loop
+  exit 1
+fi
+
+echo "[llamad] model: $MODEL"
+echo "[llamad] port:  $PORT  ctx: $CTX"
+
+# --no-mmap: Android's low-RAM killer interacts badly with huge mmapped
+# files; explicit alloc keeps residency honest. Threads: big cores only.
+exec llama-server \
+  -m "$MODEL" \
+  -c "$CTX" \
+  --host 127.0.0.1 \
+  --port "$PORT" \
+  --no-mmap \
+  -t "${AESOP_THREADS:-6}"
