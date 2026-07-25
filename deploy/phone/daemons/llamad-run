@@ -1,10 +1,14 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # llamad — Gemma 4 12B IT QAT GGUF via llama-server on port 8081.
 #
-# GGUF path: llama.cpp → GGML → CPU (or Adreno via OpenCL build).
-# This is the Termux-side brain. The NPU-compiled models (Gemma 4 E4B,
-# Qwen 2B QAI) run in the APP's ort_engine on 8080 — never here.
-# Termux cannot reach the HTP; don't burn time trying.
+# GGUF path: llama.cpp → GGML → backend ladder:
+#   1. ggml-hexagon (Qualcomm's upstreamed HTP backend; Q4_0 supported,
+#      K-quants NOT — this is why the model file must be the q4_0 quant).
+#      Needs the Hexagon-enabled build + FastRPC vendor libs reachable.
+#   2. OpenCL → Adreno 830, if the build has it.
+#   3. CPU big cores — always works, the floor.
+# The GENIE-compiled models (Gemma 4 E4B, Qwen 2B QAI ctx binaries) still
+# run in the APP's ort_engine on 8080 — never here; different runtime.
 #
 # Models are ALREADY ON DEVICE — this script only discovers, never downloads.
 # Override discovery with:  export AESOP_MODEL=/path/to/model.gguf
@@ -12,6 +16,11 @@ set -u
 
 PORT="${AESOP_GGML_PORT:-8081}"
 CTX="${AESOP_CTX:-4096}"
+# Offload everything to whatever accelerator this llama.cpp build carries.
+# Backend ladder for the 12B Q4_0: ggml-hexagon (HTP v79 — supports Q4_0,
+# NOT K-quants) → OpenCL (Adreno 830) → CPU big cores. -ngl is a no-op on
+# a CPU-only build, so it's always safe to ask for full offload.
+NGL="${AESOP_NGL:-99}"
 
 discover_model() {
   # Explicit override wins
@@ -59,6 +68,7 @@ exec llama-server \
   -c "$CTX" \
   --host 127.0.0.1 \
   --port "$PORT" \
+  -ngl "$NGL" \
   -fa \
   -ctk q8_0 -ctv q8_0 \
   -t "${AESOP_THREADS:-6}"
