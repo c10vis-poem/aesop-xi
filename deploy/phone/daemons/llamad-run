@@ -1,14 +1,15 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # llamad — Gemma 4 12B IT QAT GGUF via llama-server on port 8081.
 #
-# GGUF path: llama.cpp → GGML → backend ladder:
-#   1. ggml-hexagon (Qualcomm's upstreamed HTP backend; Q4_0 supported,
-#      K-quants NOT — this is why the model file must be the q4_0 quant).
-#      Needs the Hexagon-enabled build + FastRPC vendor libs reachable.
-#   2. OpenCL → Adreno 830, if the build has it.
-#   3. CPU big cores — always works, the floor.
-# The GENIE-compiled models (Gemma 4 E4B, Qwen 2B QAI ctx binaries) still
-# run in the APP's ort_engine on 8080 — never here; different runtime.
+# GGUF path: llama.cpp → GGML → Adreno 830 via OpenCL when the build has
+# it, CPU big cores otherwise. That is the whole ladder in here.
+#
+# NO HTP FROM TERMUX. Termux cannot reach the Hexagon DSP — the FastRPC
+# vendor libs are outside this sandbox, and no llama.cpp build flag fixes
+# that. Don't add ggml-hexagon here; don't spend an evening on it.
+# The HTP path is the APP: Horizons (Kotlin/WebView) → ort_engine on 8080,
+# running GENIE-compiled contexts (Gemma 4 E4B, Qwen 2B QAI). Termux gets
+# to that plane by asking the app over the bridge, never by loading it.
 #
 # Models are ALREADY ON DEVICE — this script only discovers, never downloads.
 # Override discovery with:  export AESOP_MODEL=/path/to/model.gguf
@@ -16,10 +17,8 @@ set -u
 
 PORT="${AESOP_GGML_PORT:-8081}"
 CTX="${AESOP_CTX:-4096}"
-# Offload everything to whatever accelerator this llama.cpp build carries.
-# Backend ladder for the 12B Q4_0: ggml-hexagon (HTP v79 — supports Q4_0,
-# NOT K-quants) → OpenCL (Adreno 830) → CPU big cores. -ngl is a no-op on
-# a CPU-only build, so it's always safe to ask for full offload.
+# Full offload to Adreno if this build carries the OpenCL backend; a
+# no-op on a CPU-only build, so it's always safe to ask for it.
 NGL="${AESOP_NGL:-99}"
 
 discover_model() {
@@ -28,10 +27,10 @@ discover_model() {
     echo "$AESOP_MODEL"
     return
   fi
-  # Preferred: Gemma 4 12B IT QAT in Q4_0 specifically. On Snapdragon,
-  # llama.cpp runtime-repacks Q4_0 into the i8mm/dotprod-optimized aarch64
-  # layout — measurably faster than K-quants (Q4_K_XL etc.) on this CPU.
-  # If both quants are on disk, Q4_0 must win.
+  # Preferred: Gemma 4 12B IT QAT in Q4_0 specifically. llama.cpp
+  # runtime-repacks Q4_0 into the i8mm/dotprod aarch64 layout on this SoC,
+  # which K-quants (Q4_K_XL etc.) don't get. Both files may be on disk —
+  # Q4_0 must win.
   local m
   m="$(find "$HOME/models" /sdcard/Download /storage/emulated/0/Download /storage/*/models \
       -iname '*gemma*12b*q4_0*.gguf' 2>/dev/null | head -1)"
