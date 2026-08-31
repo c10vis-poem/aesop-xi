@@ -1,0 +1,113 @@
+# AESOP T3 — Jetson Orin Nano 8GB Hub
+#
+# Runs the core T3 services per profiles/nav.yaml:
+#   - Postgres + pgvector (OB1/Open Brain recall memory)
+#   - Vault bare git repo (canonical markdown; phone syncs here)
+#   - OmniRoute (gateway: role→runtime binding, combo routing, audit log)
+#
+# 8GB RAM budget — this is a HUB, not a big-model box.
+# Memory allocations:
+#   Postgres: ~512MB  |  Redis: ~64MB  |  OmniRoute: ~1024MB
+#   Remaining ~5.8GB for OS + future executive-small (gemma-4-E2B)
+#
+# Usage:
+#   cd ~/aesop/deploy/jetson
+#   cp .env.example .env  # edit secrets
+#   docker compose --profile t3 up -d
+#
+# Verify from phone over Tailscale:
+#   psql -h jetson -U aesop -d openbrain -c '\dt'
+#   git push jetson:~/vault.git  (vault sync)
+#   curl http://jetson:20128  (OmniRoute dashboard)
+
+services:
+  # ── Postgres + pgvector (Recall Memory — OB1/Open Brain) ──────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: aesop-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: openbrain
+      POSTGRES_USER: aesop
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ../init/ob1-schema.sql:/docker-entrypoint-initdb.d/01-ob1-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aesop -d openbrain"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # ── Redis (OmniRoute rate limiter backend) ───────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: aesop-redis
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning --maxmemory 64mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+
+  # ── OmniRoute (Gateway: role→runtime, combo routing, audit) ──────
+  omniroute:
+    build:
+      context: ${OMNIROUTE_REPO_DIR:-../../OmniRoute}
+      target: runner-base
+    image: omniroute:aesop-t3
+    container_name: aesop-omniroute
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 40s
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+      - PORT=20128
+      - DASHBOARD_PORT=20128
+      - API_PORT=20129
+      - API_HOST=0.0.0.0
+      - HOSTNAME=0.0.0.0
+      - DATA_DIR=/app/data
+      - REDIS_URL=redis://redis:6379
+      - OMNIROUTE_MEMORY_MB=1024
+      - OMNIROUTE_ALLOW_PRIVATE_PROVIDER_URLS=true
+      - LIVE_WS_HOST=0.0.0.0
+    ports:
+      - "20128:20128"
+      - "20129:20129"
+    volumes:
+      - omniroute-data:/app/data
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.mjs"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 1280M
+
+volumes:
+  pg-data:
+    name: aesop-pg-data
+  redis-data:
+    name: aesop-redis-data
+  omniroute-data:
+    name: aesop-omniroute-data

@@ -1,11 +1,11 @@
-# AESOP Architecture
+# Æsop-Xi Architecture
 
 **Agentic Executions Split Operations Protocol**
 
-AESOP is a protocol for a split, multi-node agent stack with one shared, auditable
+Æsop-Xi is a protocol for a split, multi-node agent stack with one shared, auditable
 memory. It is defined in terms of **roles**, **memory types**, and **capability tiers**
 — never specific hardware. A user's actual machines are declared in a *profile*
-(`profiles/`), which maps hardware onto tiers. This separation is what makes AESOP
+(`profiles/`), which maps hardware onto tiers. This separation is what makes Æsop-Xi
 publishable: the protocol is device-agnostic; only the profile is personal.
 
 ---
@@ -66,20 +66,29 @@ reachable) → each role lands on its preferred tier.
 
 ## 4. Memory architecture
 
-Three **distinct** memory types — the separation is the point.
+Four **distinct** memory types — the separation is the point. (Added 2026-08-31: the
+original spec only named three; auditing the dev-process side of this project turned
+up an unstated fourth — session-scoped state was already implicitly assumed by the
+T3 docker-compose's Redis container, but never named as its own memory type until now.)
 
 | Memory | Kind | Content | Backend |
 | --- | --- | --- | --- |
 | **Declarative** | authored | facts, docs, "what things are" — **source of truth** | wiki markdown (OpenWiki generates; Obsidian / Graphify render) |
 | **Recall** | emergent | raw thoughts, sources, cross-domain search | OB1 / Open Brain (Postgres + vector, MCP-exposed) |
 | **Strategic** | distilled | reasoning patterns from successes **and** failures | ReasoningBank (`{query, think, action, status}` → distilled item + embedding) |
+| **Working / Ephemeral** | transient | in-flight session/task state — current conversation buffer, in-progress tool-call context — **deliberately not persisted** | Redis (already provisioned in `deploy/jetson/docker-compose.yml`, never previously named as a memory type) |
 
 **Shared tooling & interchange**
 - **notebooklm-py** is a shared *source/synthesis tool* any memory may call (grounded
   Q&A, summaries, podcast/quiz artifacts). Auth is a Google session, not a Gemini API key.
-- **Markdown** is the interchange format across all three; embeddings are derived.
+- **Markdown** is the interchange format across the three persistent types; embeddings
+  are derived. Working/Ephemeral is intentionally outside this — it never gets
+  serialized to markdown or embedded, that's what makes it ephemeral.
 - Recall and Strategic are both vector stores and **may share one backend** (e.g. OB1's
   Postgres with a `thoughts` namespace and a `strategies` namespace).
+- Working/Ephemeral is the boundary that keeps the other three clean: nothing moves
+  from Redis into Declarative/Recall/Strategic except through an explicit write (the
+  audit gate in §5), so mid-task scratch state never silently becomes "memory."
 
 ### The flywheel (closed loop)
 
@@ -119,9 +128,9 @@ independently tool-calling agent for Tier 0–1, with teeth kept only where a mi
 
 ReasoningBank (Google Cloud AI; arxiv 2509.25140) distills reusable strategies from
 **both** successful and failed trajectories, retrieves them before acting, and feeds new
-learnings back. Its mechanism maps 1:1 onto AESOP's decoupled executor/auditor:
+learnings back. Its mechanism maps 1:1 onto Æsop-Xi's decoupled executor/auditor:
 
-| AESOP | ReasoningBank |
+| Æsop-Xi | ReasoningBank |
 | --- | --- |
 | Files-executor (auditor-blind) | emits `{query, think_list, action_list}` — never calls a judge |
 | **Auditor** | the `--judge autoeval` reward source; pass/flag → `reward` 1/0 |
@@ -173,3 +182,40 @@ See `profiles/` for concrete hardware mappings.
   out-of-band (cloud GLM 5.2), which also satisfies independence for free.
 - Whether Recall and Strategic share one vector backend or stay separate stores.
 - Local embedder choice for the max-privacy tier.
+- Memory sits on T3 (home node) by default in §2's tier table, but T3 doesn't exist
+  yet (no Jetson procured — see `unresolved.md`). Until it does, memory has to
+  actually work from T1 (phone) + T4 (cloud) alone; the doc's fallback language
+  covers this but the emphasis reads as T3-first, which doesn't match current reality.
+
+## 10. OmniRoute / OB1 / ReasoningBank routing — under active exploration, unresolved
+
+Verified 2026-08-31 by reading OmniRoute's actual source tree (it isn't cloned on
+this device — checked via `gh api` against the real repo), not assumed:
+
+- OmniRoute's vector store (`src/lib/memory/vectorStore.ts`) is real and
+  sophisticated: hybrid search combining `sqlite-vec` + SQLite FTS5 via Reciprocal
+  Rank Fusion, int8 quantization, self-healing upsert — **but it's SQLite end to
+  end, not Postgres/pgvector.** Functionally it can fill Recall memory's job; it is
+  not literally the Postgres backend §4 currently names.
+- "Stale information flagging" exists only narrowly: hardcoded tests
+  (`free-note-freshness.test.ts`) checking that AI-provider free-tier pricing/quota
+  text matches current reality. Not a general content-staleness detector for a
+  memory/knowledge base. Other "stale" hits in the repo are connection/credential
+  expiration handling (TLS clients, API-key encryption, session TTLs) — a different
+  kind of staleness than "is this fact still true."
+- **Zero references to ReasoningBank anywhere in OmniRoute's source.** Any
+  adherence to ReasoningBank's trajectory schema (§6) would be net-new integration
+  work, not something to wire up from existing code.
+
+**Hypothesis being explored (not decided):** OmniRoute's SQLite hybrid store may be
+better understood as **episodic memory** — day-to-day, moment-to-moment recall —
+which may be a distinct 5th memory type rather than a subset of Recall as currently
+modeled in §4. Where OB1 actually sits relative to OmniRoute and ReasoningBank is
+unresolved: candidate framing is OB1 as a routing/audit-logging/agent-definition
+layer that itself implements ReasoningBank's protocol, forming a
+user ↔ OB1 ↔ OmniRoute stack, rather than OB1 being just a Postgres+vector store
+sitting parallel to OmniRoute. Separately: Postgres+vector may turn out to matter
+mainly as a **post-training evaluation store** (validating outputs after a
+ReasoningBank induce_memory / MaTTS training pass) rather than as continuous
+production recall — also unresolved. None of this is settled; resolve before
+building against it, don't treat this section as spec.

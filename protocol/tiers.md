@@ -1,4 +1,4 @@
-# AESOP Protocol — Tiers & Bindings
+# Æsop-Xi Protocol — Tiers & Bindings
 
 Device-agnostic. This file defines the tier contracts and how roles bind to them. A
 user's hardware is declared separately in `profiles/`.
