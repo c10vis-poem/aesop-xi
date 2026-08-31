@@ -31,18 +31,24 @@ def ensure_16k_wav(src, dst):
 
 
 def transcribe(audio_path, model_dir):
+    import wave
+
     import sherpa_onnx
 
     recognizer = sherpa_onnx.OfflineRecognizer.from_moonshine(
         preprocessor=os.path.join(model_dir, "preprocess.onnx"),
         encoder=os.path.join(model_dir, "encode.int8.onnx"),
-        uncached_decoder=os.path.join(model_dir, "uncached_decode.onnx"),
-        cached_decoder=os.path.join(model_dir, "cached_decode.onnx"),
+        uncached_decoder=os.path.join(model_dir, "uncached_decode.int8.onnx"),
+        cached_decoder=os.path.join(model_dir, "cached_decode.int8.onnx"),
         tokens=os.path.join(model_dir, "tokens.txt"),
         num_threads=4,
     )
 
-    samples, sr = sherpa_onnx.read_wave(audio_path)
+    with wave.open(audio_path, "rb") as f:
+        sr = f.getframerate()
+        frames = f.readframes(f.getnframes())
+    samples = np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32768.0
+
     stream = recognizer.create_stream()
     stream.accept_waveform(sr, samples)
     recognizer.decode_stream(stream)

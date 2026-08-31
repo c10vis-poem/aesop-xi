@@ -35,7 +35,8 @@ tmux kill-session -t openwiki 2>/dev/null || true
 
 # ── Start LLM server ────────────────────────────────────────────────
 echo "Starting llama-server (model: $(basename "$MODEL"), ctx: $CTX, port: $PORT)..."
-tmux new-session -d -s llm "llama-server -m '$MODEL' -c $CTX --host 0.0.0.0 --port $PORT 2>&1 | tee /tmp/llama-server.log"
+LLAMA_LOG="${PREFIX:-/data/data/com.termux/files/usr}/tmp/llama-server.log"
+tmux new-session -d -s llm "llama-server -m '$MODEL' -c $CTX --host 0.0.0.0 --port $PORT 2>&1 | tee '$LLAMA_LOG'"
 
 # Wait for server to come up
 echo -n "Waiting for server..."
@@ -47,7 +48,7 @@ for i in $(seq 1 60); do
   if [ "$i" -eq 60 ]; then
     echo " timed out after 60s."
     echo "Check logs: tmux attach -t llm"
-    echo "Or:         cat /tmp/llama-server.log"
+    echo "Or:         cat $LLAMA_LOG"
     exit 1
   fi
   sleep 1
