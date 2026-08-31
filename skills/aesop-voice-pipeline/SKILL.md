@@ -86,6 +86,8 @@ in `/root/venv`.
 
 Canonical copy: `aesop-xi/skills/aesop-voice-pipeline/` (version controlled), same
 convention as `termux-helper`. The `~/.claude/skills/aesop-voice-pipeline/` copy is
-**ephemeral** — the sandbox is reclaimed and re-cloned, so edits made there vanish
-and the account-level skill goes stale without any error. When updating this skill,
-commit to the repo; treat the local file as a working copy only.
+a **local working copy, not the source of truth**: on this phone (a persistent
+device) it just silently drifts out of sync with the repo if edited without
+committing; on a disposable cloud sandbox it is wiped outright when the container
+is reclaimed. Either way, other devices/sessions never see local-only edits. When
+updating this skill, commit to the repo.
