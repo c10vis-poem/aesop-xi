@@ -1,0 +1,73 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# llamad — Gemma 4 12B IT QAT GGUF via llama-server on port 8081.
+#
+# GGUF path: llama.cpp → GGML → Adreno 830 via OpenCL when the build has
+# it, CPU big cores otherwise. That is the whole ladder in here.
+#
+# NO HTP FROM TERMUX. Termux cannot reach the Hexagon DSP — the FastRPC
+# vendor libs are outside this sandbox, and no llama.cpp build flag fixes
+# that. Don't add ggml-hexagon here; don't spend an evening on it.
+# The HTP path is the APP: Horizons (Kotlin/WebView) → ort_engine on 8080,
+# running GENIE-compiled contexts (Gemma 4 E4B, Qwen 2B QAI). Termux gets
+# to that plane by asking the app over the bridge, never by loading it.
+#
+# Models are ALREADY ON DEVICE — this script only discovers, never downloads.
+# Override discovery with:  export AESOP_MODEL=/path/to/model.gguf
+set -u
+
+PORT="${AESOP_GGML_PORT:-8081}"
+CTX="${AESOP_CTX:-4096}"
+# Full offload to Adreno if this build carries the OpenCL backend; a
+# no-op on a CPU-only build, so it's always safe to ask for it.
+NGL="${AESOP_NGL:-99}"
+
+discover_model() {
+  # Explicit override wins
+  if [ -n "${AESOP_MODEL:-}" ] && [ -f "${AESOP_MODEL:-}" ]; then
+    echo "$AESOP_MODEL"
+    return
+  fi
+  # Preferred: Gemma 4 12B IT QAT in Q4_0 specifically. llama.cpp
+  # runtime-repacks Q4_0 into the i8mm/dotprod aarch64 layout on this SoC,
+  # which K-quants (Q4_K_XL etc.) don't get. Both files may be on disk —
+  # Q4_0 must win.
+  local m
+  m="$(find "$HOME/models" /sdcard/Download /storage/emulated/0/Download /storage/*/models \
+      -iname '*gemma*12b*q4_0*.gguf' 2>/dev/null | head -1)"
+  if [ -n "$m" ]; then echo "$m"; return; fi
+  # Any Gemma 12B quant as second choice
+  find "$HOME/models" /sdcard/Download /storage/emulated/0/Download /storage/*/models \
+      -iname '*gemma*12b*.gguf' 2>/dev/null | head -1 && return
+}
+
+MODEL="$(discover_model | head -1)"
+if [ -z "$MODEL" ]; then
+  # Fall back to ANY gguf so the plane comes up degraded rather than dead
+  MODEL="$(find "$HOME/models" /sdcard/Download /storage/emulated/0/Download \
+      -iname '*.gguf' 2>/dev/null | head -1)"
+fi
+if [ -z "$MODEL" ]; then
+  echo "[llamad] no .gguf found in ~/models, /sdcard/Download, or SD card."
+  echo "[llamad] set AESOP_MODEL=/path/to/gemma-4-12b-it-qat.gguf"
+  sleep 30   # runit will re-run us; don't hot-loop
+  exit 1
+fi
+
+echo "[llamad] model: $MODEL"
+echo "[llamad] port:  $PORT  ctx: $CTX"
+
+# mmap (default) on purpose: file-backed pages are reclaimable, so under
+# memory pressure Android evicts pages (slow re-read from UFS) instead of
+# the low-memory killer shooting the whole daemon. On a device that dips
+# from 11GB free to 8GB when apps bloat, degraded-but-alive beats dead.
+# KV cache in q8_0 (needs -fa) roughly halves cache memory at 4k ctx.
+# Threads: big cores only — more threads just fights the LITTLE cluster.
+exec llama-server \
+  -m "$MODEL" \
+  -c "$CTX" \
+  --host 127.0.0.1 \
+  --port "$PORT" \
+  -ngl "$NGL" \
+  -fa \
+  -ctk q8_0 -ctv q8_0 \
+  -t "${AESOP_THREADS:-6}"
