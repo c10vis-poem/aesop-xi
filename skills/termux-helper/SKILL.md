@@ -101,7 +101,7 @@ hand-roll Gemma turn markers on the client.
 The data planes are independent of the control plane — killing `aesopd`
 never interrupts a generation already running over direct HTTP.
 
-Full wire spec: `aesop/protocol/bridge-protocol.md`.
+Full wire spec: `aesop-xi/protocol/bridge-protocol.md`.
 
 ## Part 5: Persistence
 
@@ -110,7 +110,7 @@ is not optional.
 
 ```bash
 pkg install termux-services      # then fully restart Termux
-bash ~/aesop/deploy/phone/daemons/install-daemons.sh
+bash ~/repos/aesop-xi/deploy/phone/daemons/install-daemons.sh
 sv status llamad aesopd
 ```
 
@@ -133,9 +133,12 @@ sv status llamad aesopd
 
 ## Part 7: Where This Lives
 
-Canonical copy: `aesop/skills/termux-helper/SKILL.md` (version controlled).
+Canonical copy: `aesop-xi/skills/termux-helper/SKILL.md` (version controlled).
 
-The container-local `~/.claude/skills/` copy is **ephemeral** — the sandbox
-is reclaimed and re-cloned, so edits made there vanish and the account-level
-skill goes stale without any error. When updating this skill, commit to the
-repo; treat the local file as a working copy only.
+The local `~/.claude/skills/` copy is a **working copy, not the source of
+truth** — not literally ephemeral on this phone (a persistent device, not a
+disposable sandbox); it just silently drifts out of sync with the repo if
+edited without committing, and other devices/sessions never see local-only
+edits. On a disposable cloud sandbox editing this same repo, that local copy
+is wiped outright when the container is reclaimed. Either way: when updating
+this skill, commit to the repo.
