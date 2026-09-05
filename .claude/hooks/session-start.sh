@@ -22,3 +22,14 @@ if [ -x "$SCRIPT" ]; then
 else
   echo "[bootstrap] skip: $SCRIPT not found" >> "$LOG" 2>&1
 fi
+
+# Commit + push the log so proof this ran survives this (disposable) session's
+# container — the raw log, not a fixed-schema summary, since which harnesses/
+# assets are present varies session to session and a schema would need to
+# keep changing to match. Best-effort: never fail the session over this.
+(
+  cd "$PROJECT_DIR" \
+    && git add -f "$(basename "$LOG")" \
+    && git commit -q -m "chore: session-start bootstrap log $(date -u +%Y-%m-%dT%H:%M:%SZ)" -- "$(basename "$LOG")" \
+    && git push -q origin main
+) >> "$LOG" 2>&1 || echo "[bootstrap] log commit/push failed — see above" >> "$LOG" 2>&1
