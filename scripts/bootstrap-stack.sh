@@ -40,6 +40,41 @@ sync_repo() {
     || log "sync to main failed for $(basename "$dir") — continuing with whatever's on disk"
 }
 
+# Known sibling repos, "<dir-name>:<github-slug>". HTTPS + no auth needed —
+# every one of these is a public fork, so a fresh disposable container can
+# clone them with zero credential setup. Attaching aesop-xi alone is enough;
+# this list is what makes hand-attaching each sibling unnecessary.
+KNOWN_SIBLINGS="
+ECC-aesop:c10vis-poem/ECC-aesop
+NovA-prime-agent:c10vis-poem/NovA-prime-agent
+NovA-skills:c10vis-poem/NovA-skills
+obsidian-skills:c10vis-poem/obsidian-skills
+NoVa-reverse-skill:c10vis-poem/NoVa-reverse-skill
+NovA-clean-my-ai-harness:c10vis-poem/NovA-clean-my-ai-harness
+NoVa-honey-for-devs:c10vis-poem/NoVa-honey-for-devs
+NovA-code-review-graph:c10vis-poem/NovA-code-review-graph
+notebooklm-py:c10vis-poem/notebooklm-py
+OmniRoute:c10vis-poem/OmniRoute
+NovA-terrestrial-brain:c10vis-poem/NovA-terrestrial-brain
+"
+
+ensure_siblings_cloned() {
+  local entry name slug dir
+  for entry in $KNOWN_SIBLINGS; do
+    name="${entry%%:*}"
+    slug="${entry#*:}"
+    dir="$BASE_DIR/$name"
+    if [ ! -d "$dir/.git" ]; then
+      log "Cloning $name (not present this session) ..."
+      git clone --depth 1 "https://github.com/$slug.git" "$dir" 2>&1 | sed 's/^/  /' \
+        || log "clone failed for $name — will skip its section below"
+    fi
+  done
+}
+
+# --- -1. Clone whatever sibling repos aren't already attached this session
+ensure_siblings_cloned
+
 # --- 0. Sync aesop-xi itself to origin/main before doing anything else ----
 sync_repo "$AESOP_ROOT"
 
