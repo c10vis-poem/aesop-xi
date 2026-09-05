@@ -40,13 +40,14 @@ sync_repo() {
     || log "sync to main failed for $(basename "$dir") — continuing with whatever's on disk"
 }
 
-# Known sibling repos, "<dir-name>:<github-slug>". HTTPS + no auth needed —
-# every one of these is a public fork, so a fresh disposable container can
-# clone them with zero credential setup. Attaching aesop-xi alone is enough;
-# this list is what makes hand-attaching each sibling unnecessary.
+# Known SHARED-ASSET sibling repos only, "<dir-name>:<github-slug>" — HTTPS,
+# no auth needed, every one a public fork. Deliberately excludes harness
+# repos (ECC-aesop, NovA-prime-agent, etc.): every agent benefits from these
+# regardless of which harness it uses, so they auto-clone unconditionally.
+# Harness repos stay opt-in (presence-based only, see section 1 below) --
+# auto-cloning ECC-aesop here would install ECC for every agent every
+# session, defeating "not every agent is going to use ECC".
 KNOWN_SIBLINGS="
-ECC-aesop:c10vis-poem/ECC-aesop
-NovA-prime-agent:c10vis-poem/NovA-prime-agent
 NovA-skills:c10vis-poem/NovA-skills
 obsidian-skills:c10vis-poem/obsidian-skills
 NoVa-reverse-skill:c10vis-poem/NoVa-reverse-skill
