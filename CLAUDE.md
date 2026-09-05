@@ -66,6 +66,12 @@ re-discover these from scratch:
   plugins listed). Deferred to a future flash session — see `unresolved.md` in
   novae-xorpus.
 
+## Git workflow — PR required, no direct pushes to main
+
+Push changes to a branch, open a PR, let the `CI` GitHub Action run, merge
+once it's green (`allow_auto_merge` is on, so this can auto-merge with no
+manual click). Do not `git push origin main` directly for code changes.
+
 ## Scoping note
 
 This file only loads automatically when a session's working directory is inside
