@@ -7,6 +7,18 @@ session or model. Created 2026-08-31
 — previously nonexistent despite RESUME.md
 implying a handoff process was already in place.
 
+## Operator Rule 0 — no action without explicit order
+
+A skipped or unanswered question is NOT consent. State the concrete plan and
+get an explicit go-ahead before any state-changing action, even a local and
+easily reversible one.
+
+## Operator Rule 1 — read this file and RESUME.md first
+
+Before doing anything else in this repo, read this CLAUDE.md and RESUME.md.
+Standing convention across the operator's repos for months — step one,
+every session, no exceptions. (Complements the session-handoff workflow below.)
+
 ## Session handoff workflow
 
 - **`RESUME.md` is fully rewritten at the end of every session** — never appended
@@ -90,6 +102,8 @@ re-discover these from scratch:
 Push changes to a branch, open a PR, let the `CI` GitHub Action run, merge
 once it's green (`allow_auto_merge` is on, so this can auto-merge with no
 manual click). Do not `git push origin main` directly for code changes.
+Before every push, scan the diff for secrets/keys and refuse to push if any
+are found. Leave the branch in place after merge; do not delete it.
 
 ## Scoping note
 
