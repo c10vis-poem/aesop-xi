@@ -37,90 +37,13 @@ every session, no exceptions. (Complements the session-handoff workflow below.)
   the immediate next session; `unresolved.md` remains the permanent home for
   everything else.
 
-## Memory — three separate systems, don't conflate them
+## Memory — two separate systems, don't conflate them
 
-- **Dev-process continuity building Æsop-Xi**: this file + `RESUME.md` +
-  `unresolved.md`. Operational, about the build process.
-- **The finished Æsop-Xi agent's own runtime memory model**: `ARCHITECTURE.md`
-  §4 (Declarative / Recall / Strategic / Working-Ephemeral) and
-  `protocol/memory.md`. Product architecture spec.
-- **The whole stack's runtime memory infrastructure** (the actual mem0 /
-  terrestrial-brain / OmniRoute / reasoning-bank services that every agent
-  across the 7 base repos consumes): see `## Runtime memory stack` below.
-  aesop-xi is the canonical home per the naming canon ("memory layer, context
-  formatting, tool and context orchestration, protocols"). The other 6 base
-  repos reference this section, they don't duplicate it.
-
-## Runtime memory stack (data plane, canonical here)
-
-**Architecture — one-way routing through OmniRoute:**
-
-```
-[any agent, any harness]
-      │
-      ▼
-OmniRoute @ localhost:20128/mcp     ← single MCP endpoint
-      │
-   ┌──┴────────┬────────────────┐
-   ▼           ▼                ▼
- mem0     terrestrial-brain   local SQLite FTS5
- (hosted) (Postgres+pgvector) (offline fallback)
-      │
-      ▼  async tap on every completion
- mem0 habits + Reasoning Bank failure traces
-                │
-                ▼
-   NovAExorpus/05_episodic_logs/
-```
-
-**Layer roles:**
-- **mem0** — in-session episodic state, user habits, "what was said 2 min ago"
-- **terrestrial-brain (= OB1)** — structural governed retrieval via MCP
-  (`knowledge.retrieve`, `knowledge.record`); universal, node-independent
-- **OmniRoute** — the gateway; dynamic-dispatch + local fallback + async
-  memory tap; agents never manually pick backends
-- **Reasoning Bank** — multi-model execution ledger, crash recovery
-  (resume from step N+1 if killed at N); JSON KV under `tools/reasoning_bank/`
-- **Continual Harness** — reset-free self-improvement loop with rollback
-
-**Homes on disk (all under aesop-xi):**
-- `skills/omniroute/` — routing config, decay policies, memory-tap rules
-- `skills/mem0/` — mem0 client config, per-project user_id defaults
-- `skills/terrestrial_brain/` — obsidian sync config, ingestion routes
-- `tools/omniroute/` — start/stop scripts, port 20128 bind
-- `tools/reasoning_bank/` — ledger reader/writer; trajectories flush to
-  `NovAExorpus/05_episodic_logs/`
-- `tools/continual_harness/` — supervisor loop
-
-Upstream fork trackers stay for sync only (`clovis-mem0-vingiaN`,
-`NovA-terrestrial-brain`, `OmniRoute`, `reasoning-bank`) — operational
-code lives here.
-
-**Runtime state (not repo):**
-- Postgres data: `~/pgdata/` on device; migrates to Jetson later
-- Keys: `~/.mem0/.env` (chmod 600), `~/.openwiki/.env`,
-  `~/repos/NovA-terrestrial-brain/local-mcp/.env.local`
-- mem0 hosted MCP: `https://mcp.mem0.ai/mcp`; key starts with `m0-`
-- OmniRoute upstream provider: OpenRouter (single, 160+ models via
-  `OPENROUTER_API_KEY`)
-
-**Bootstrap** — `tools/bootstrap.sh` is canonical. Every other repo's
-`tools/bootstrap.sh` is a thin wrapper that calls this first, then does
-repo-specific post-boot. Idempotent, fast on hot start, loud on failure.
-Runs on session start via CLAUDE.md instruction, git post-checkout hook,
-or manual invocation.
-
-**Decisions:**
-- Chose hosted mem0 MCP over self-hosted docker server (Termux can't run
-  Docker; hosted covers cross-device automatically).
-- mem0 pip SDK doesn't install on Termux (grpcio wheel build fails on
-  bionic); use MCP + plugin only. SDK path via proot-Debian if ever needed.
-- Terrestrial-brain runs phone-local NOW (Termux Postgres 18.2 + pgvector
-  v0.8.6 built from source with `MKDIR_P/INSTALL/SHLIB_LINK` overrides);
-  migrates to Jetson later via env var URL swap, no rebuild.
-- OmniRoute → OpenRouter as single upstream, not direct provider APIs.
-- Repo-shape decisions (Novus-Agenti demolish, restructure) deferred to
-  post-grill session.
+- **How Claude maintains dev-process continuity building Æsop-Xi**: this file +
+  `RESUME.md` + `unresolved.md`. Operational, about the build process.
+- **How the finished Æsop-Xi agent manages its own memory at runtime**:[if this is changed in the master corpus since 9-01-2026 update this document] `ARCHITECTURE.md`
+  §4 (Declarative / Recall / Strategic / Working-Ephemeral) and `protocol/memory.md`.
+  Product architecture spec, not a dev-process document.
 
 ## Termux/Android platform gap — the general fix (2026-09-06)
 
@@ -172,7 +95,7 @@ re-discover these from scratch:
   (`.claude-plugin/plugin.json`) never actually installed via the plugin system.
   Confirmed against `~/.claude/plugins/installed_plugins.json` (only 3 unrelated
   plugins listed). Deferred to a future flash session — see `unresolved.md` in
-  NovAExorpus.
+  novae-xorpus.
 
 ## Git workflow — PR required, no direct pushes to main
 
