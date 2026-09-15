@@ -95,7 +95,7 @@ re-discover these from scratch:
   (`.claude-plugin/plugin.json`) never actually installed via the plugin system.
   Confirmed against `~/.claude/plugins/installed_plugins.json` (only 3 unrelated
   plugins listed). Deferred to a future flash session — see `unresolved.md` in
-  novae-xorpus.
+  NovAExorpus.
 
 ## Git workflow — PR required, no direct pushes to main
 
