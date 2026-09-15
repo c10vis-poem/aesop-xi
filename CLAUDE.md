@@ -97,13 +97,13 @@ re-discover these from scratch:
   plugins listed). Deferred to a future flash session — see `unresolved.md` in
   novae-xorpus.
 
-## Git workflow — PR required, no direct pushes to main
+## Git workflow — push directly to main
 
-Push changes to a branch, open a PR, let the `CI` GitHub Action run, merge
-once it's green (`allow_auto_merge` is on, so this can auto-merge with no
-manual click). Do not `git push origin main` directly for code changes.
-Before every push, scan the diff for secrets/keys and refuse to push if any
-are found. Leave the branch in place after merge; do not delete it.
+Push directly to `main`. No feature branches, no PRs — operator directive
+2026-09-15, superseding the previous branch/PR-required convention (that
+workflow left work stranded on unmerged branches across sessions and
+devices instead of ever reaching a shared, cloneable state). Before every
+push, scan the diff for secrets/keys and refuse to push if any are found.
 
 ## Scoping note
 
