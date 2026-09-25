@@ -30,7 +30,7 @@ sudo apt-get update -qq
 sudo apt-get install -y -qq \
   docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin \
   tailscale nodejs code google-chrome-stable chrome-remote-desktop \
-  xfce4 xfce4-goodies dbus-x11 arc-theme papirus-icon-theme fonts-noto-core
+  xfce4 xfce4-goodies dbus-x11 arc-theme papirus-icon-theme fonts-noto-core xprintidle
 
 # Obsidian: newest official release that ships a Linux .deb (some releases are Android-only)
 url=$(curl -fsSL "https://api.github.com/repos/obsidianmd/obsidian-releases/releases?per_page=20" \
