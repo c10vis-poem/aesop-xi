@@ -11,7 +11,16 @@ inbound=$(ss -Htn state established | awk -v L="$listen" '
   END { print c+0 }')
 busy=$(awk -v m="$LOAD_MAX" '{print ($1 > m) ? 1 : 0}' /proc/loadavg)
 
-if [ "$inbound" -gt 0 ] || [ "$busy" -eq 1 ] || [ ! -e "$STAMP" ]; then
+# Chrome Remote Desktop connects outbound, so count recent keyboard/mouse input on any X display.
+desk=0
+for sock in /tmp/.X11-unix/X*; do
+  [ -S "$sock" ] || continue
+  u=$(stat -c %U "$sock"); h=$(getent passwd "$u" | cut -d: -f6)
+  ms=$(runuser -u "$u" -- env DISPLAY=":${sock##*X}" XAUTHORITY="$h/.Xauthority" xprintidle 2>/dev/null) || continue
+  [ "$ms" -lt 360000 ] && desk=1  # input within the last 6 min (timer runs every 5)
+done
+
+if [ "$inbound" -gt 0 ] || [ "$busy" -eq 1 ] || [ "$desk" -eq 1 ] || [ ! -e "$STAMP" ]; then
   touch "$STAMP"
   exit 0
 fi
