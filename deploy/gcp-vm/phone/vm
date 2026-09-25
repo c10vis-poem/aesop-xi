@@ -1,0 +1,27 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# Control the omniroute-brain GCP VM: vm on | off | status | ssh
+set -e
+NAME=${VM_NAME:-omniroute-x86}  # old ARM VM: VM_NAME=omniroute-brain vm ...
+LOC="--zone us-central1-a --project project-alchemist-490416"
+
+ip() { gcloud compute instances describe $NAME $LOC --format="value(networkInterfaces[0].accessConfigs[0].natIP)"; }
+
+case "$1" in
+  on)
+    gcloud compute instances start $NAME $LOC --quiet
+    echo "ON  ip=$(ip)  (auto-off after 30 min idle, hard stop 4 AM Pacific)" ;;
+  off)
+    gcloud compute instances stop $NAME $LOC --quiet
+    echo "OFF" ;;
+  status)
+    s=$(gcloud compute instances describe $NAME $LOC --format="value(status)")
+    [ "$s" = RUNNING ] && echo "RUNNING  ip=$(ip)" || echo "$s (off, not billing for the machine)" ;;
+  ssh)
+    exec gcloud compute ssh $NAME $LOC ;;
+  desktop)
+    echo "Tunnel up. In Windows App connect to 127.0.0.1:3389, user u0_a538, password: cat ~/.vm-desktop-pass"
+    echo "Keep this open while using the desktop; Ctrl+C to close."
+    exec gcloud compute ssh $NAME $LOC -- -N -L 3389:127.0.0.1:3389 ;;
+  *)
+    echo "usage: vm on | off | status | ssh | desktop"; exit 1 ;;
+esac

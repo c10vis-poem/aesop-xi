@@ -1,0 +1,7 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# Delete the public firewall rules on project-alchemist-490416 (SSH rule is kept).
+gcloud compute firewall-rules delete allow-omniroute-services dev-ports default-allow-rdp \
+  --project project-alchemist-490416 --quiet
+echo "--- remaining rules ---"
+gcloud compute firewall-rules list --project project-alchemist-490416 \
+  --format="table(name,sourceRanges.list(),allowed[].map().firewall_rule().list())"
