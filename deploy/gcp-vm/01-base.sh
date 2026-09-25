@@ -38,7 +38,7 @@ url=$(curl -fsSL "https://api.github.com/repos/obsidianmd/obsidian-releases/rele
 curl -fsSL -o /tmp/obsidian.deb "$url"
 sudo apt-get install -y -qq /tmp/obsidian.deb
 
-sudo usermod -aG docker,chrome-remote-desktop "$USER"
+sudo usermod -aG docker "$USER"
 echo "exec /etc/X11/Xsession /usr/bin/xfce4-session" | sudo tee /etc/chrome-remote-desktop-session >/dev/null
 sudo systemctl disable --now lightdm 2>/dev/null || true  # headless VM; CRD provides the display
 
