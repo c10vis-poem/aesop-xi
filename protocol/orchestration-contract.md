@@ -1,6 +1,6 @@
 # D.U.M.B.A.S.S. Orchestration Contract
 
-**Status:** DRAFT v0.2 (2026-09-25; v0.2 = operator decisions: Honey-only compression, routing-driven retrieval), awaiting operator approval. No OmniRoute code is written against
+**Status:** DRAFT v0.3 (2026-09-25; v0.2–0.3 operator decisions: Honey-only compression, routing-driven retrieval across all arms, context-scaled budget), awaiting operator approval. No OmniRoute code is written against
 this until it is approved. Scope: the runtime loop every agent request goes through. The finished
 Æsop-Xi agent's own memory model stays in `ARCHITECTURE.md` §4 / `protocol/memory.md`.
 
@@ -45,9 +45,9 @@ Rule: **only OmniRoute holds provider API keys.** Services that need an LLM or e
 [1] agent → OmniRoute /v1  (per-harness OmniRoute API key; REQUIRE_API_KEY=true)
 [2] onRequest plugins, by priority (lower first)
       p20  continual-harness   attach this session's checkpoint (if any)       [modifyBody]
-      p30  retrieval-planner   classify the request, query ONLY the arms it needs
-                               (mem0 / Terrestrial Brain / code-review-graph / none),
-                               inject results under a token cap                  [modifyBody]
+      p30  retrieval-planner   classify the request, query EVERY arm it needs — any of
+                               mem0 / Terrestrial Brain / code-review-graph, all three,
+                               or none — and inject under a context-scaled budget [modifyBody]
       p40  reasoning-bank      open a trajectory record for this request        [addMetadata]
 [3] (reserved — OmniRoute's built-in memory injection stays OFF; the planner replaces it)
 [4] skill injection   (Omni Skills: observation_log tool, mode=auto)
@@ -64,9 +64,15 @@ Rule: **only OmniRoute holds provider API keys.** Services that need an LLM or e
 ```
 
 Retrieval policy (operator decision): **retrieval is part of routing.** The planner decides per
-request which arms are relevant and injects only those, capped (default 2k tokens total). A greeting
-pulls nothing; "what calls requireAuth?" pulls code-review-graph; "what did we decide about the VM?"
-pulls mem0 + Terrestrial Brain. Agents can still call the arms' tools directly for follow-ups.
+request which arms are relevant, and a single prompt can use all three. A greeting pulls nothing;
+"what calls requireAuth?" pulls code-review-graph; a long multi-part prompt about the VM build pulls
+mem0 + Terrestrial Brain + code-review-graph together. Agents can still call the arms' tools
+directly for follow-ups.
+
+Budget (operator decision: do not kneecap long prompts): no fixed token cap. The retrieval budget is
+a share of the **target model's context window** (default 25%, configurable), minus room reserved for
+the prompt itself and the response. It is split across the chosen arms by result relevance, not
+evenly. A hard ceiling exists only to stop injected context from crowding out the prompt/answer.
 
 ---
 
@@ -110,7 +116,8 @@ pulls mem0 + Terrestrial Brain. Agents can still call the arms' tools directly f
 - **Retrieval planner** (plugin `retrieval-planner`, `onRequest` p30, permission `network`):
   classify intent from the latest user turn (cheap rules first; a small routed model only when
   rules are unsure), call the chosen arms over their local endpoints in parallel with a timeout,
-  merge results with source labels, trim to the cap, inject as one context block. Every decision
+  merge results with source labels, fit them to the context-scaled budget (highest-relevance
+  results first, across all arms), inject as one context block. Every decision
   (arms chosen, tokens injected, latency) is recorded in the Reasoning Bank record.
 - **OPEN:** whether OmniRoute's MCP server can front external MCP servers (so agents need one
   endpoint instead of three). Until verified, harnesses connect to the TB and CRG MCP endpoints
@@ -159,8 +166,8 @@ pulls mem0 + Terrestrial Brain. Agents can still call the arms' tools directly f
 - One OmniRoute API key per harness per device; scopes are the minimum each harness needs.
 - All service ports bind `127.0.0.1`; devices reach them over Tailscale only. GCP firewall: SSH only.
 - Secrets live in `/opt/dumbass/*.env` (mode 600), never in unit files or repos.
-- OmniRoute's built-in memory injection stays off; the retrieval planner injects only what a
-  request needs, under a token cap.
+- OmniRoute's built-in memory injection stays off; the retrieval planner injects what each
+  request needs, sized to the target model's context window.
 - The VM runs only while in use: 30-min idle auto-off + 4 AM hard stop; no other scheduled jobs.
 
 ---
@@ -171,8 +178,8 @@ pulls mem0 + Terrestrial Brain. Agents can still call the arms' tools directly f
 2. `honey` compression engine → preview savings → set stacked pipeline.
 3. `reasoning-bank` + `continual-harness` plugins, each with tests in the fork.
 4. `observation_log` Omni Skill; merge the two existing observation logs into it.
-5. `retrieval-planner` plugin over mem0 / Terrestrial Brain / code-review-graph; measure
-   tokens injected per request on real traffic before widening the cap.
+5. `retrieval-planner` plugin over mem0 / Terrestrial Brain / code-review-graph; measure arms
+   chosen and tokens injected per request on real traffic, then tune the budget share.
 6. Harness installs (Honey + Task Observer + OmniRoute key) on phone, tablet, VM.
 
 Each step is built on a feature branch of the relevant fork, CI green, and deployed to the VM
