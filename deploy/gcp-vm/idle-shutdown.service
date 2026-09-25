@@ -1,0 +1,6 @@
+[Unit]
+Description=Power off VM when idle
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/idle-shutdown

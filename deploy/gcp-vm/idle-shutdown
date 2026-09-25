@@ -1,0 +1,22 @@
+#!/bin/sh
+# Power off after IDLE_MIN minutes with no inbound connections and low CPU.
+IDLE_MIN=30
+LOAD_MAX=0.5
+STAMP=/run/idle-shutdown.last-active  # /run is wiped on boot, so the clock restarts each boot
+
+listen=$(ss -Htln | awk '{n=split($4,a,":"); print a[n]}' | sort -u | tr '\n' ' ')
+inbound=$(ss -Htn state established | awk -v L="$listen" '
+  BEGIN { n=split(L,p," "); for (i=1;i<=n;i++) lp[p[i]]=1 }
+  { k=split($3,a,":"); if (lp[a[k]] && $4 !~ /^(127\.|\[::1\]|\[::ffff:127\.)/) c++ }
+  END { print c+0 }')
+busy=$(awk -v m="$LOAD_MAX" '{print ($1 > m) ? 1 : 0}' /proc/loadavg)
+
+if [ "$inbound" -gt 0 ] || [ "$busy" -eq 1 ] || [ ! -e "$STAMP" ]; then
+  touch "$STAMP"
+  exit 0
+fi
+
+if [ -n "$(find "$STAMP" -mmin +"$IDLE_MIN")" ]; then
+  logger -t idle-shutdown "idle ${IDLE_MIN}m, powering off"
+  systemctl poweroff
+fi
